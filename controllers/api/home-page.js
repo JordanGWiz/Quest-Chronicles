@@ -2,6 +2,7 @@ const express = require("express");
 const { User, Post, Comment } = require("../models");
 const router = express.Router();
 
+// Homepage route
 router.get("/", async (req, res) => {
   try {
     const loggedIn = req.session.loggedIn;
@@ -15,18 +16,19 @@ router.get("/", async (req, res) => {
     res.render("homepage", { loggedIn, posts });
   } catch (err) {
     console.error(err);
-    res.status(500).json(err);
+    res.status(500).json({ error: "Failed to load homepage" });
   }
 });
 
+// Login route
 router.get("/login", (req, res) => {
   if (req.session.loggedIn) {
-    res.redirect("/");
-    return;
+    return res.redirect("/");
   }
   res.render("login", { loggedIn: false });
 });
 
+// Single post route
 router.get("/post/:id", async (req, res) => {
   try {
     const postData = await Post.findByPk(req.params.id, {
@@ -38,10 +40,11 @@ router.get("/post/:id", async (req, res) => {
         },
       ],
     });
+
     if (!postData) {
-      res.status(404).json({ error: "Post not found" });
-      return;
+      return res.status(404).json({ error: "Post not found" });
     }
+
     const post = postData.get({ plain: true });
     res.render("post", { post, loggedIn: req.session.loggedIn });
   } catch (err) {

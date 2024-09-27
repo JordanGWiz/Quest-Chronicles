@@ -1,9 +1,14 @@
 const { Model, DataTypes } = require("sequelize");
+const bcrypt = require("bcrypt");
 const sequelize = require("../config/connection");
 
-class Post extends Model {}
+class User extends Model {
+  checkPassword(loginPw) {
+    return bcrypt.compareSync(loginPw, this.password);
+  }
+}
 
-Post.init(
+User.init(
   {
     id: {
       type: DataTypes.INTEGER,
@@ -11,36 +16,56 @@ Post.init(
       primaryKey: true,
       autoIncrement: true,
     },
-    title: {
+    username: {
       type: DataTypes.STRING,
       allowNull: false,
-      max: 20,
     },
-    content: {
-      type: DataTypes.TEXT,
+    email: {
+      type: DataTypes.STRING,
       allowNull: false,
-      max: 500,
+      unique: true,
+      validate: {
+        isEmail: true,
+      },
     },
-    user_id: {
-      type: DataTypes.INTEGER,
-      references: {
-        model: "user",
-        key: "id",
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        len: [6, 100], 
       },
     },
   },
   {
-    sequelize,
-    freezeTableName: true,
-    underscored: true,
-    timestamps: true,
-    modelName: "post",
     hooks: {
-      beforeCreate: async (post) => {
-        post.post_date = new Date();
+      beforeCreate: async (newUserData) => {
+        try {
+          newUserData.password = await bcrypt.hash(newUserData.password, 10);
+        } catch (error) {
+          throw new Error("Error hashing password during creation");
+        }
+        return newUserData;
+      },
+      beforeUpdate: async (updatedUserData) => {
+        try {
+          if (updatedUserData.password) {
+            updatedUserData.password = await bcrypt.hash(
+              updatedUserData.password,
+              10
+            );
+          }
+        } catch (error) {
+          throw new Error("Error hashing password during update");
+        }
+        return updatedUserData;
       },
     },
+    sequelize,
+    timestamps: false, 
+    freezeTableName: true,
+    underscored: true,
+    modelName: "user",
   }
 );
 
-module.exports = Post;
+module.exports = User;
