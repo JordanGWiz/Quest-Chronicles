@@ -1,37 +1,44 @@
+const path = require("path");
 const express = require("express");
-const dotenv = require("dotenv");
 const session = require("express-session");
-const sequelize = require("./config/sequelize");
-
-dotenv.config();
+const exphbs = require("express-handlebars");
+const SequelizeStore = require("connect-session-sequelize")(session.Store);
+const routes = require("./controllers");
+const dashboardRoutes = require("./controllers/dashboard-page");
+const sequelize = require("./config/connection");
+const helpers = require("./utils/helpers");
 
 const app = express();
+const PORT = process.env.PORT || 3001;
+
+const sess = {
+  secret: "Super secret secret",
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000,
+  },
+  resave: false,
+  saveUninitialized: true,
+  store: new SequelizeStore({
+    db: sequelize,
+  }),
+};
+
+app.use(session(sess));
+
+const hbs = exphbs.create({ helpers });
+app.engine("handlebars", hbs.engine);
+app.set("view engine", "handlebars");
+app.set("views", path.join(__dirname, "views"));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-  })
-);
-
 app.use(express.static(path.join(__dirname, "public")));
 
-app.use("/", require("./routes/html/index"));
-app.use("/api", require("./routes/api/index"));
+app.use("/dashboard", dashboardRoutes);
+app.use(routes);
 
-const PORT = process.env.PORT || 3001;
-
-sequelize
-  .sync()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error("Unable to connect to the database:", err);
-  });
+sequelize.sync({ force: false }).then(() => {
+  app.listen(PORT, () =>
+    console.log(`Server is listening on http://localhost:${PORT}`)
+  );
+});
